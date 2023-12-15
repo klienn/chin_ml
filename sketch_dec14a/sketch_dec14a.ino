@@ -65,7 +65,6 @@ void setup() {
   myservo.attach(servoPin, 1000, 2000);
   dht.begin();
 
-
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
   Serial.println("** Values ****");
   Serial.println("|  humidity | temperature | tankFoodLevel(cm) | motion |            date           |");
@@ -84,7 +83,7 @@ void sendSensor() {
 
   float humidity = dhtData["humidity"];
   float temperature = dhtData["temperature"];
-  float tankFoodLevel = readUltrasonic();
+  float tankFoodLevel = mapFloat(readUltrasonic(), 0, 127.0, 100.0, 0);
 
   Blynk.virtualWrite(V0, humidity);
   Blynk.virtualWrite(V1, temperature);
@@ -99,7 +98,7 @@ void sendSensor() {
   Serial.print("   |   ");
   Serial.print(tankFoodLevel);
   Serial.print("   |   ");
-  Serial.print(pirState ? "Detected": "Not Detected");
+  Serial.print(pirState ? "Detected" : "Not Detected");
   Serial.print("   |   ");
   serializeJson(dateData, Serial);
   Serial.println("   |");
@@ -141,7 +140,9 @@ double readUltrasonic() {
   duration = pulseIn(pingPin, HIGH);
 
   cm = microsecondsToCentimeters(duration);
-  return cm;
+  if (cm >= 1200) cm = 0;
+
+  return cm > 127.0 ? 127.0 : cm;
 }
 
 long microsecondsToInches(long microseconds) {
@@ -188,4 +189,8 @@ void readPIR() {
       pirState = false;
     }
   }
+}
+
+float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
