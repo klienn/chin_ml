@@ -27,7 +27,7 @@ char ssid[] = "scam ni";
 char pass[] = "Walakokabalo0123!";
 
 unsigned long previousReadingMillis = 0;
-const long readingInterval = 500;
+const long readingInterval = 1000;
 
 bool servoState = false;
 bool pirState = false;
