@@ -8,9 +8,9 @@
 
 #define BLYNK_PRINT Serial
 
-#define BLYNK_TEMPLATE_ID "TMPL6RT8C1O01"
-#define BLYNK_TEMPLATE_NAME "test"
-#define BLYNK_AUTH_TOKEN "DzsO4Pk191jBqPQAp6xGj1Susx4ji9Bq"
+#define BLYNK_TEMPLATE_ID "TMPL6HN4XpHhd"
+#define BLYNK_TEMPLATE_NAME "Swine Husbandry"
+#define BLYNK_AUTH_TOKEN "BC-rX8jnLU_tQYgSd7K96uXGUPZRcRom"
 
 #include <BlynkSimpleEsp32.h>
 
