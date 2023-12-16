@@ -104,6 +104,40 @@ void sendSensor() {
   Serial.println("   |");
 }
 
+void schedFromBlynk() {
+  DynamicJsonDocument dhtData = readDHT();
+  DynamicJsonDocument dateData = readRTC();
+
+  String year = dateData["year"];
+  String month = dateData["month"];
+  String day = dateData["day"];
+  String hour = dateData["hour"];
+  String minute = dateData["minute"];
+  String second = dateData["second"];
+
+  float humidity = dhtData["humidity"];
+  float temperature = dhtData["temperature"];
+  float tankFoodLevel = mapFloat(readUltrasonic(), 0, 127.0, 100.0, 0);
+
+  Blynk.virtualWrite(V0, humidity);
+  Blynk.virtualWrite(V1, temperature);
+  Blynk.virtualWrite(V2, tankFoodLevel);
+  Blynk.virtualWrite(V3, pirState);
+  Blynk.virtualWrite(V4, servoState);
+
+  Serial.print("|   ");
+  Serial.print(humidity);
+  Serial.print("   |   ");
+  Serial.print(temperature);
+  Serial.print("   |   ");
+  Serial.print(tankFoodLevel);
+  Serial.print("   |   ");
+  Serial.print(pirState ? "Detected" : "Not Detected");
+  Serial.print("   |   ");
+  serializeJson(dateData, Serial);
+  Serial.println("   |");
+}
+
 void loop() {
   unsigned long currentMillis = millis();
   Blynk.run();
