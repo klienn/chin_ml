@@ -35,6 +35,11 @@ bool pirState = false;
 int initialPosition = 0;
 Servo myservo;
 
+int sched1 = 0;
+int sched2 = 0;
+int sched3 = 0;
+float tankFoodLevel = 0;
+
 DHT dht(DHTPIN, DHTTYPE);
 
 RTC_DS3231 rtc;
@@ -48,11 +53,11 @@ void setup() {
     Serial.flush();
     while (1) delay(10);
   }
-
-  if (rtc.lostPower()) {
-    Serial.println("RTC lost power, let's set the time!");
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  // if (rtc.lostPower()) {
+  //   Serial.println("RTC lost power, let's set the time!");
+  //   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  // }
 
   pinMode(RelayPin, OUTPUT);
   pinMode(pirPin, INPUT);
@@ -66,8 +71,11 @@ void setup() {
   dht.begin();
 
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  Blynk.syncVirtual(V5);
+  Blynk.syncVirtual(V6);
+  Blynk.syncVirtual(V7);
   Serial.println("** Values ****");
-  Serial.println("|  humidity | temperature | tankFoodLevel(cm) | motion |            date           |");
+  Serial.println("|  humidity | temperature | tankFoodLevel(cm) | motion |            date           | servo |");
 }
 
 void sendSensor() {
@@ -80,10 +88,22 @@ void sendSensor() {
   String hour = dateData["hour"];
   String minute = dateData["minute"];
   String second = dateData["second"];
+  int unixtime = dateData["unixtime"];
 
+  if (
+    (unixtime >= sched1 && unixtime <= sched1 + 3) || (unixtime >= sched2 && unixtime <= sched2 + 3) || (unixtime >= sched3 && unixtime <= sched3 + 3)) {
+    //turn on servo
+    servoState = true;
+  }
   float humidity = dhtData["humidity"];
   float temperature = dhtData["temperature"];
-  float tankFoodLevel = mapFloat(readUltrasonic(), 0, 127.0, 100.0, 0);
+  tankFoodLevel = mapFloat(readUltrasonic(), 0, 127.0, 100.0, 0);
+
+  if (tankFoodLevel < 25) {
+    servoState = true;
+  } else if (tankFoodLevel >= 90) {
+    servoState = false;
+  }
 
   Blynk.virtualWrite(V0, humidity);
   Blynk.virtualWrite(V1, temperature);
@@ -101,41 +121,19 @@ void sendSensor() {
   Serial.print(pirState ? "Detected" : "Not Detected");
   Serial.print("   |   ");
   serializeJson(dateData, Serial);
+  Serial.print("   |   ");
+  Serial.print(servoState ? "Open" : "Closed");
   Serial.println("   |");
 }
 
-void schedFromBlynk() {
-  DynamicJsonDocument dhtData = readDHT();
-  DynamicJsonDocument dateData = readRTC();
-
-  String year = dateData["year"];
-  String month = dateData["month"];
-  String day = dateData["day"];
-  String hour = dateData["hour"];
-  String minute = dateData["minute"];
-  String second = dateData["second"];
-
-  float humidity = dhtData["humidity"];
-  float temperature = dhtData["temperature"];
-  float tankFoodLevel = mapFloat(readUltrasonic(), 0, 127.0, 100.0, 0);
-
-  Blynk.virtualWrite(V0, humidity);
-  Blynk.virtualWrite(V1, temperature);
-  Blynk.virtualWrite(V2, tankFoodLevel);
-  Blynk.virtualWrite(V3, pirState);
-  Blynk.virtualWrite(V4, servoState);
-
-  Serial.print("|   ");
-  Serial.print(humidity);
-  Serial.print("   |   ");
-  Serial.print(temperature);
-  Serial.print("   |   ");
-  Serial.print(tankFoodLevel);
-  Serial.print("   |   ");
-  Serial.print(pirState ? "Detected" : "Not Detected");
-  Serial.print("   |   ");
-  serializeJson(dateData, Serial);
-  Serial.println("   |");
+BLYNK_WRITE(V5) {
+  sched1 = param[0].asInt();
+}
+BLYNK_WRITE(V6) {
+  sched2 = param[0].asInt();
+}
+BLYNK_WRITE(V7) {
+  sched3 = param[0].asInt();
 }
 
 void loop() {
@@ -145,18 +143,29 @@ void loop() {
   if (currentMillis - previousReadingMillis >= readingInterval) {
     previousReadingMillis = currentMillis;
     sendSensor();
+    controlServo();
   };
 }
 
 void controlServo() {
-  for (initialPosition = 0; initialPosition <= 180; initialPosition += 1) {
+  if (servoState) {
+    if (tankFoodLevel < 90) {
+      if (initialPosition <= 180) {
+        for (initialPosition; initialPosition <= 180; initialPosition += 1) {
+          myservo.write(initialPosition);
+        }
+      }
+    } else {
+      servoState = false;
+    }
 
-    myservo.write(initialPosition);
-    delay(15);
-  }
-  for (initialPosition = 180; initialPosition >= 0; initialPosition -= 1) {
-    myservo.write(initialPosition);
-    delay(15);
+
+  } else if (!servoState) {
+    if (initialPosition >= 0) {
+      for (initialPosition; initialPosition >= 0; initialPosition -= 1) {
+        myservo.write(initialPosition);
+      }
+    }
   }
 }
 
@@ -200,6 +209,7 @@ DynamicJsonDocument readDHT() {
 DynamicJsonDocument readRTC() {
   DateTime now = rtc.now();
 
+  uint32_t secondsSinceMidnight = now.hour() * 3600 + now.minute() * 60 + now.second();
 
   DynamicJsonDocument doc(200);
   doc["year"] = now.year();
@@ -208,6 +218,7 @@ DynamicJsonDocument readRTC() {
   doc["hour"] = now.hour();
   doc["minute"] = now.minute();
   doc["second"] = now.second();
+  doc["unixtime"] = secondsSinceMidnight;
   return doc;
 }
 
