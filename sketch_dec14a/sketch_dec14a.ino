@@ -33,6 +33,7 @@ const long readingInterval = 1000;
 
 bool servoState = false;
 bool pirState = false;
+bool smsSent = false;
 
 int initialPosition = 0;
 Servo myservo;
@@ -126,9 +127,12 @@ void sendSensor() {
   tankFoodLevel = mapFloat(readUltrasonic(), 0, 127.0, 100.0, 0);
 
   if (tankFoodLevel < 25) {
+    if (!smsSent) {
+      sendSMS();
+    }
     servoState = true;
   } else if (tankFoodLevel >= 90) {
-    servoState = false;
+    smsSent = false servoState = false;
   }
 
   Blynk.virtualWrite(V0, humidity);
@@ -226,6 +230,7 @@ void controlServo() {
         }
       }
     } else {
+      smsState = false;
       servoState = false;
     }
 
@@ -314,4 +319,5 @@ void sendSMS() {
   Serial2.print("FoodLevel below 25%");
   Serial2.write(26);
   delay(500);
+  smsSent = true;
 }
